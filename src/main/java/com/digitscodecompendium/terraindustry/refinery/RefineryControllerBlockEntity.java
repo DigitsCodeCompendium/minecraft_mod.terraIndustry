@@ -17,6 +17,7 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.world.level.chunk.LevelChunk;
 import net.neoforged.neoforge.fluids.FluidStack;
+import org.jetbrains.annotations.NotNull;
 
 import java.time.Instant;
 import java.time.LocalTime;
@@ -154,10 +155,6 @@ public class RefineryControllerBlockEntity extends BlockEntity {
         return Map.copyOf(found);
     }
 
-    public ResourceLocation definitionId() {
-        return definitionId;
-    }
-
     public void setDefinitionId(ResourceLocation definitionId) {
         this.definitionId = definitionId;
         setChanged();
@@ -189,14 +186,14 @@ public class RefineryControllerBlockEntity extends BlockEntity {
     }
 
     @Override
-    protected void saveAdditional(CompoundTag tag, HolderLookup.Provider registries) {
+    protected void saveAdditional(@NotNull CompoundTag tag, HolderLookup.@NotNull Provider registries) {
         super.saveAdditional(tag, registries);
         tag.putString("Definition", definitionId.toString());
         tag.putInt("Progress", progress);
     }
 
     @Override
-    protected void loadAdditional(CompoundTag tag, HolderLookup.Provider registries) {
+    protected void loadAdditional(@NotNull CompoundTag tag, HolderLookup.@NotNull Provider registries) {
         super.loadAdditional(tag, registries);
         ResourceLocation parsed = ResourceLocation.tryParse(tag.getString("Definition"));
         if (parsed != null) {
@@ -206,9 +203,12 @@ public class RefineryControllerBlockEntity extends BlockEntity {
     }
 
     private boolean runCycleTick(ServerLevel level, RefineryDefinition definition) {
-        if (requiresFuelThisTick(definition) && !has(RefineryPortType.FUEL, definition.fuel().resource())) {
-            progress = 0;
-            return false;
+        if (requiresFuelThisTick(definition)) {
+            assert definition.fuel() != null;
+            if (!has(definition.fuel().resource())) {
+                progress = 0;
+                return false;
+            }
         }
 
         consumeFuelIfRequired(definition);
@@ -228,7 +228,8 @@ public class RefineryControllerBlockEntity extends BlockEntity {
 
     private void consumeFuelIfRequired(RefineryDefinition definition) {
         if (requiresFuelThisTick(definition)) {
-            extract(RefineryPortType.FUEL, definition.fuel().resource());
+            assert definition.fuel() != null;
+            extract(definition.fuel().resource());
         }
     }
 
@@ -280,7 +281,8 @@ public class RefineryControllerBlockEntity extends BlockEntity {
 
     private void playReplacementEffects(ServerLevel level, BlockPos target, BlockState previousState) {
         level.levelEvent(2001, target, Block.getId(previousState));
-        level.playSound(null, target, previousState.getSoundType().getBreakSound(), SoundSource.BLOCKS, 1.0F, 1.0F);
+        level.playSound(null, target, previousState.getSoundType(level, target, null).getBreakSound(),
+                SoundSource.BLOCKS, 1.0F, 1.0F);
     }
 
     private void spawnCrystal(ServerLevel level, BlockPos target, ResourceLocation crystalId) {
@@ -343,13 +345,13 @@ public class RefineryControllerBlockEntity extends BlockEntity {
         return ordered;
     }
 
-    private void advancePort(RefineryPortType role) {
-        roundRobinCursor.merge(role, 1, Integer::sum);
+    private void advancePort() {
+        roundRobinCursor.merge(RefineryPortType.FUEL, 1, Integer::sum);
     }
 
-    private boolean has(RefineryPortType role, RefineryResource resource) {
+    private boolean has(RefineryResource resource) {
         int available = 0;
-        for (RefineryPortBlockEntity port : ports(role)) {
+        for (RefineryPortBlockEntity port : ports(RefineryPortType.FUEL)) {
             available += storedAmount(port, resource);
             if (available >= resource.amount()) {
                 return true;
@@ -390,22 +392,22 @@ public class RefineryControllerBlockEntity extends BlockEntity {
         return storage == null ? 0 : storage.getEnergyStored();
     }
 
-    private void extract(RefineryPortType role, RefineryResource resource) {
+    private void extract(RefineryResource resource) {
         int remaining = resource.amount();
         boolean transferred = false;
-        for (RefineryPortBlockEntity port : ports(role)) {
+        for (RefineryPortBlockEntity port : ports(RefineryPortType.FUEL)) {
             int used = extractFromPort(port, resource, remaining);
             remaining -= used;
             transferred |= used > 0;
             if (remaining == 0) {
                 if (transferred) {
-                    advancePort(role);
+                    advancePort();
                 }
                 return;
             }
         }
         if (transferred) {
-            advancePort(role);
+            advancePort();
         }
     }
 

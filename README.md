@@ -1,25 +1,77 @@
+# Terra Industry
 
-Installation information
-=======
+Terra Industry is a NeoForge 1.21.1 mod for chunk-local refineries. A controller owns
+all refinery ports in its chunk; a port in an adjacent chunk is deliberately ignored.
+The controller and all ports are unbreakable in survival. Controllers rediscover their
+ports every second, which handles ports placed after the controller.
 
-This template repository can be directly cloned to get you started with a new
-mod. Simply create a new repository cloned from this one, by following the
-instructions provided by [GitHub](https://docs.github.com/en/repositories/creating-and-managing-repositories/creating-a-repository-from-a-template).
+## Included starter refinery
 
-Once you have your clone, simply open the repository in the IDE of your choice. The usual recommendation for an IDE is either IntelliJ IDEA or Eclipse.
+The **Terra Industry** creative tab contains an **Iron Refinery** and one basic version of
+every port. Place the Iron Refinery, a Basic Material Port, Basic Fuel Port, and Basic Product
+Port, and Catalyst Blocks anywhere in the same chunk. Its refinery-owned operating policy
+consumes one coal every 120 ticks. On each completed cycle, every nearby Catalyst Block has a
+10% chance to convert one nearby stone block into iron ore.
 
-If at any point you are missing libraries in your IDE, or you've run into problems you can
-run `gradlew --refresh-dependencies` to refresh the local cache. `gradlew clean` to reset everything 
-{this does not affect your code} and then start the process again.
+## Interfaces
 
-Mapping Names:
-============
-By default, the MDK is configured to use the official mapping names from Mojang for methods and fields 
-in the Minecraft codebase. These names are covered by a specific license. All modders should be aware of this
-license. For the latest license text, refer to the mapping file itself, or the reference copy here:
-https://github.com/NeoForged/NeoForm/blob/main/Mojang.md
+Right-click a controller to see its active status, connected-port count, and cycle progress.
+Right-click a port to open its storage interface. Item ports show the recipe’s required item
+or produced item at the top and the real storage slot below it. Fluid-configured ports instead
+show a 16,000 mB gauge, the required/produced fluid, and the currently stored fluid type.
 
-Additional Resources: 
-==========
-Community Documentation: https://docs.neoforged.net/  
-NeoForged Discord: https://discord.neoforged.net/
+## KubeJS refinery registration
+
+The mod does not require KubeJS, but KubeJS can call its public Java bridge during a
+startup script. This example delays a refinery until the stated UTC instant, then runs
+twice each UTC day:
+
+```js
+// kubejs/startup_scripts/terraindustry_refineries.js
+const RefineryDefinitions = Java.loadClass(
+  'com.digitscodecompendium.terraindustry.refinery.RefineryDefinitions'
+)
+
+const RefineryResource = Java.loadClass(
+  'com.digitscodecompendium.terraindustry.refinery.RefineryResource'
+)
+const CatalystTransformationRecipe = Java.loadClass(
+  'com.digitscodecompendium.terraindustry.refinery.CatalystTransformationRecipe'
+)
+const CatalystOutcome = Java.loadClass(
+  'com.digitscodecompendium.terraindustry.refinery.CatalystTransformationRecipe$Outcome'
+)
+const CatalystCrystallizationRecipe = Java.loadClass(
+  'com.digitscodecompendium.terraindustry.refinery.CatalystCrystallizationRecipe'
+)
+const RefineryOperatingRate = Java.loadClass(
+  'com.digitscodecompendium.terraindustry.refinery.RefineryOperatingRate'
+)
+
+RefineryDefinitions.register(
+  'terraindustry:basic_crude',
+  '2026-09-01T00:00:00Z',
+  ['06:00-10:00', '18:30-23:00'],
+  20, // cycle length in ticks
+  [new CatalystTransformationRecipe('minecraft:stone', new CatalystOutcome('minecraft:iron_ore', 0.10))],
+  RefineryOperatingRate.everyTicks(RefineryResource.item('minecraft:coal', 1), 20),
+  null, // optional coolant profile, reserved for coolant mechanics
+  [new CatalystCrystallizationRecipe('minecraft:iron_ore', 'minecraft:amethyst_cluster', 0.10)]
+)
+RefineryDefinitions.setDefault('terraindustry:basic_crude')
+```
+
+Use `null` for no delayed start. A schedule of `00:00-00:00` is active all day. Windows
+such as `22:00-02:00` cross midnight. `setDefault` selects the recipe used by unconfigured
+controllers. A refinery definition contains one or more catalyst-transformation recipes. At
+the end of a fueled, scheduled cycle, each Catalyst Block finds one nearby matching input block
+for each recipe and rolls the listed output chances. Fuel is an operating property of the
+refinery definition, not a transformation recipe input.
+
+Crystallization recipes select a matching block type and a crystal block. On a successful roll, a
+crystallization recipe places its crystal on one random exposed face of the selected block. Vanilla
+amethyst clusters are supported out of the box.
+
+Fuel and Modifier Ports expose item storage; the Coolant Port exposes liquid storage. Modifier
+and coolant effects are intentionally not processed yet, as their separate mechanics still need
+their design pass.

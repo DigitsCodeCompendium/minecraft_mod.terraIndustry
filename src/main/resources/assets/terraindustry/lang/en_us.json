@@ -1,0 +1,9 @@
+{
+  "itemGroup.terraindustry.terra_industry": "Terra Industry",
+  "block.terraindustry.refinery_controller": "Basic Refinery Controller",
+  "block.terraindustry.iron_refinery": "Iron Refinery",
+  "block.terraindustry.fuel_port": "Basic Fuel Port",
+  "block.terraindustry.modifier_port": "Basic Modifier Port",
+  "block.terraindustry.coolant_port": "Coolant Port",
+  "block.terraindustry.catalyst_block": "Catalyst Block"
+}

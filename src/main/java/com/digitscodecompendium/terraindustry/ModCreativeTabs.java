@@ -24,6 +24,9 @@ public final class ModCreativeTabs {
                         output.accept(ModBlocks.COOLANT_PORT.get());
                         output.accept(ModBlocks.CATALYST_BLOCK.get());
                         output.accept(ModBlocks.EFFECTS_BLOCK.get());
+                        output.accept(ModBlocks.ACCELERATION_MODIFIER.get());
+                        output.accept(ModBlocks.SABOTAGE_MODIFIER.get());
+                        output.accept(ModBlocks.CRYSTALLIZATION_MODIFIER.get());
                     }).build());
 
     private ModCreativeTabs() { }

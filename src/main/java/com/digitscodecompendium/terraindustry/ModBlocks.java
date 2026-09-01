@@ -8,8 +8,10 @@ import com.digitscodecompendium.terraindustry.refinery.RefineryPortType;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.Block;
 import net.neoforged.neoforge.registries.DeferredBlock;
+import net.neoforged.neoforge.registries.DeferredItem;
 import net.neoforged.neoforge.registries.DeferredRegister;
 
 /** All refinery pieces are intentionally unbreakable; only their controller owns behaviour. */
@@ -24,6 +26,18 @@ public final class ModBlocks {
     public static final DeferredBlock<RefineryPortBlock> COOLANT_PORT = registerPort("coolant_port", RefineryPortType.COOLANT);
     public static final DeferredBlock<Block> CATALYST_BLOCK = registerSimpleBlock("catalyst_block");
     public static final DeferredBlock<EffectsBlock> EFFECTS_BLOCK = registerEffectsBlock("effects_block");
+    public static final DeferredItem<Item> ACCELERATION_MODIFIER =
+            ITEMS.registerSimpleItem("acceleration_modifier", new Item.Properties().stacksTo(1));
+    public static final DeferredItem<Item> SABOTAGE_MODIFIER =
+            ITEMS.registerSimpleItem("sabotage_modifier", new Item.Properties().stacksTo(1));
+    public static final DeferredItem<Item> CRYSTALLIZATION_MODIFIER =
+            ITEMS.registerSimpleItem("crystallization_modifier", new Item.Properties().stacksTo(1));
+
+    public static boolean isModifierItem(ItemStack stack) {
+        return stack.is(ACCELERATION_MODIFIER.get())
+                || stack.is(SABOTAGE_MODIFIER.get())
+                || stack.is(CRYSTALLIZATION_MODIFIER.get());
+    }
 
     private static DeferredBlock<RefineryControllerBlock> registerController(String name) {
         DeferredBlock<RefineryControllerBlock> block = BLOCKS.registerBlock(name, RefineryControllerBlock::new);

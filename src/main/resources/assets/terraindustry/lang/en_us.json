@@ -6,5 +6,9 @@
   "block.terraindustry.modifier_port": "Basic Modifier Port",
   "block.terraindustry.coolant_port": "Coolant Port",
   "block.terraindustry.catalyst_block": "Catalyst Block",
-  "block.terraindustry.effects_block": "Effects Block"
+  "block.terraindustry.effects_block": "Effects Block",
+  "item.terraindustry.acceleration_modifier": "Acceleration Modifier",
+  "item.terraindustry.sabotage_modifier": "Sabotage Modifier",
+  "item.terraindustry.crystallization_modifier": "Crystallization Modifier",
+  "modifier.terraindustry.none": "None"
 }

@@ -37,6 +37,8 @@ import java.util.Set;
 public class RefineryControllerBlockEntity extends BlockEntity {
     private static final long DISCOVERY_INTERVAL_TICKS = 20;
     private static final int CATALYST_RANGE = 4;
+    private static final double CRYSTALLIZATION_CONVERSION_MULTIPLIER = 0.5D;
+    private static final double CRYSTALLIZATION_CHANCE_MULTIPLIER = 2.0D;
     private static final ResourceLocation LEGACY_BASIC_IRON_ID = ResourceLocation.fromNamespaceAndPath("terraindustry", "basic_iron");
     private static final ResourceLocation UNCONFIGURED_ID = ResourceLocation.fromNamespaceAndPath("terraindustry", "unconfigured");
 
@@ -62,6 +64,7 @@ public class RefineryControllerBlockEntity extends BlockEntity {
         if (level.getGameTime() % DISCOVERY_INTERVAL_TICKS == 0) {
             controller.discoverComponents(level);
         }
+        controller.ports(RefineryPortType.MODIFIER).forEach(RefineryPortBlockEntity::tickModifier);
 
         controller.active = RefineryDefinitions.find(controller.definitionId)
                 .filter(definition -> definition.isScheduledNow(Instant.now()))
@@ -185,6 +188,26 @@ public class RefineryControllerBlockEntity extends BlockEntity {
         return ports;
     }
 
+    public RefineryModifierType activeModifier() {
+        if (modifierCount(RefineryModifierType.SABOTAGE) > 0) return RefineryModifierType.SABOTAGE;
+        if (modifierCount(RefineryModifierType.ACCELERATION) > 0) return RefineryModifierType.ACCELERATION;
+        if (modifierCount(RefineryModifierType.CRYSTALLIZATION) > 0) return RefineryModifierType.CRYSTALLIZATION;
+        return RefineryModifierType.NONE;
+    }
+
+    public int modifierCount(RefineryModifierType type) {
+        return (int) ports(RefineryPortType.MODIFIER).stream()
+                .filter(port -> port.activeModifier() == type)
+                .count();
+    }
+
+    public int modifierTicksRemaining(RefineryModifierType type) {
+        return ports(RefineryPortType.MODIFIER).stream()
+                .filter(port -> port.activeModifier() == type)
+                .mapToInt(RefineryPortBlockEntity::activeModifierTicksRemaining)
+                .max().orElse(0);
+    }
+
     @Override
     protected void saveAdditional(@NotNull CompoundTag tag, HolderLookup.@NotNull Provider registries) {
         super.saveAdditional(tag, registries);
@@ -203,6 +226,18 @@ public class RefineryControllerBlockEntity extends BlockEntity {
     }
 
     private boolean runCycleTick(ServerLevel level, RefineryDefinition definition) {
+        int accelerationModifiers = modifierCount(RefineryModifierType.ACCELERATION);
+        int workTicks = activeModifier() == RefineryModifierType.SABOTAGE
+                ? 1 : 1 << Math.min(accelerationModifiers, 6);
+        boolean worked = false;
+        for (int tick = 0; tick < workTicks; tick++) {
+            if (!runSingleCycleTick(level, definition)) break;
+            worked = true;
+        }
+        return worked;
+    }
+
+    private boolean runSingleCycleTick(ServerLevel level, RefineryDefinition definition) {
         if (requiresFuelThisTick(definition)) {
             assert definition.fuel() != null;
             if (!has(definition.fuel().resource())) {
@@ -215,7 +250,11 @@ public class RefineryControllerBlockEntity extends BlockEntity {
         progress++;
 
         if (progress >= definition.cycleTicks()) {
-            activateCatalysts(level);
+            if (activeModifier() == RefineryModifierType.SABOTAGE) {
+                activateReverseCatalysts(level, definition);
+            } else {
+                activateCatalysts(level);
+            }
             progress = 0;
         }
         setChanged();
@@ -234,20 +273,24 @@ public class RefineryControllerBlockEntity extends BlockEntity {
     }
 
     private void activateCatalysts(ServerLevel level) {
+        int crystallizationModifiers = modifierCount(RefineryModifierType.CRYSTALLIZATION);
+        double conversionMultiplier = Math.pow(CRYSTALLIZATION_CONVERSION_MULTIPLIER, crystallizationModifiers);
+        double crystallizationMultiplier = Math.pow(CRYSTALLIZATION_CHANCE_MULTIPLIER, crystallizationModifiers);
         for (Map.Entry<BlockPos, CatalystTransformationRecipe> entry : catalystTargets.entrySet()) {
-            transformTarget(level, entry.getKey(), entry.getValue());
+            transformTarget(level, entry.getKey(), entry.getValue(), conversionMultiplier);
         }
         for (Map.Entry<BlockPos, CatalystCrystallizationRecipe> entry : crystallizationTargets.entrySet()) {
-            crystallizeTarget(level, entry.getKey(), entry.getValue());
+            crystallizeTarget(level, entry.getKey(), entry.getValue(), crystallizationMultiplier);
         }
     }
 
-    private void transformTarget(ServerLevel level, BlockPos target, CatalystTransformationRecipe recipe) {
+    private void transformTarget(ServerLevel level, BlockPos target, CatalystTransformationRecipe recipe,
+                                 double chanceMultiplier) {
         if (!matchesInput(level, target, recipe.inputBlock())) {
             return;
         }
 
-        CatalystTransformationRecipe.Outcome outcome = chooseOutcome(recipe, level.random.nextDouble());
+        CatalystTransformationRecipe.Outcome outcome = chooseOutcome(recipe, level.random.nextDouble(), chanceMultiplier);
         if (outcome == null) {
             return;
         }
@@ -258,9 +301,10 @@ public class RefineryControllerBlockEntity extends BlockEntity {
         level.setBlock(target, outputBlock.defaultBlockState(), Block.UPDATE_ALL);
     }
 
-    private CatalystTransformationRecipe.Outcome chooseOutcome(CatalystTransformationRecipe recipe, double roll) {
+    private CatalystTransformationRecipe.Outcome chooseOutcome(CatalystTransformationRecipe recipe, double roll,
+                                                                 double chanceMultiplier) {
         for (CatalystTransformationRecipe.Outcome outcome : recipe.outputs()) {
-            roll -= outcome.chance();
+            roll -= outcome.chance() * chanceMultiplier;
             if (roll <= 0.0D) {
                 return outcome;
             }
@@ -268,10 +312,33 @@ public class RefineryControllerBlockEntity extends BlockEntity {
         return null;
     }
 
-    private void crystallizeTarget(ServerLevel level, BlockPos target, CatalystCrystallizationRecipe recipe) {
-        if (matchesInput(level, target, recipe.inputBlock()) && level.random.nextDouble() <= recipe.chance()) {
+    private void crystallizeTarget(ServerLevel level, BlockPos target, CatalystCrystallizationRecipe recipe,
+                                   double chanceMultiplier) {
+        double chance = Math.min(1.0D, recipe.chance() * chanceMultiplier);
+        if (matchesInput(level, target, recipe.inputBlock()) && level.random.nextDouble() <= chance) {
             spawnCrystal(level, target, recipe.crystalBlock());
         }
+    }
+
+    private void activateReverseCatalysts(ServerLevel level, RefineryDefinition definition) {
+        Set<BlockPos> transformed = new java.util.HashSet<>();
+        for (BlockPos catalyst : catalysts) {
+            for (CatalystTransformationRecipe recipe : definition.catalystRecipes()) {
+                for (CatalystTransformationRecipe.Outcome outcome : recipe.outputs()) {
+                    for (BlockPos target : findNearbyInputs(level, catalyst, outcome.outputBlock())) {
+                        if (transformed.add(target) && level.random.nextDouble() <= outcome.chance()) {
+                            replaceBlock(level, target, BuiltInRegistries.BLOCK.get(recipe.inputBlock()));
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private void replaceBlock(ServerLevel level, BlockPos target, Block outputBlock) {
+        BlockState previousState = level.getBlockState(target);
+        playReplacementEffects(level, target, previousState);
+        level.setBlock(target, outputBlock.defaultBlockState(), Block.UPDATE_ALL);
     }
 
     private boolean matchesInput(ServerLevel level, BlockPos target, ResourceLocation inputBlock) {

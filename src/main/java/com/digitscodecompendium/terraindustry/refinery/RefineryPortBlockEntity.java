@@ -1,6 +1,7 @@
 package com.digitscodecompendium.terraindustry.refinery;
 
 import com.digitscodecompendium.terraindustry.ModBlockEntities;
+import com.digitscodecompendium.terraindustry.ModBlocks;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.core.NonNullList;
@@ -23,23 +24,12 @@ import java.util.Objects;
 public class RefineryPortBlockEntity extends BlockEntity {
     public static final int FLUID_CAPACITY = 16_000;
     public static final int ENERGY_CAPACITY = 100_000;
+    public static final int TIMED_MODIFIER_DURATION_TICKS = 10 * 60 * 20;
     private @Nullable BlockPos controllerPos;
-    private final ItemStackHandler items = new ItemStackHandler(9) {
-        @Override protected void onContentsChanged(int slot) { refineryContentsChanged(); }
-
-        @Override public void deserializeNBT(HolderLookup.Provider registries, CompoundTag tag) {
-            super.deserializeNBT(registries, tag);
-            // Ports saved before the 3×3 upgrade contain Size: 1. Preserve their stack while
-            // expanding the backing list, otherwise opening the nine-slot menu crashes.
-            if (stacks.size() < 9) {
-                var previous = new ArrayList<>(stacks);
-                stacks = NonNullList.withSize(9, ItemStack.EMPTY);
-                for (int slot = 0; slot < previous.size(); slot++) {
-                    stacks.set(slot, previous.get(slot));
-                }
-            }
-        }
-    };
+    private final ItemStackHandler items;
+    private int modifierActivationProgress;
+    private RefineryModifierType activeModifier = RefineryModifierType.NONE;
+    private int activeModifierTicksRemaining;
     private final FluidTank fluid = new FluidTank(FLUID_CAPACITY) {
         @Override protected void onContentsChanged() { refineryContentsChanged(); }
     };
@@ -58,6 +48,37 @@ public class RefineryPortBlockEntity extends BlockEntity {
 
     public RefineryPortBlockEntity(BlockPos pos, BlockState state) {
         super(ModBlockEntities.REFINERY_PORT.get(), pos, state);
+        int slots = portType() == RefineryPortType.MODIFIER ? 1 : 9;
+        items = new ItemStackHandler(slots) {
+            @Override protected void onContentsChanged(int slot) {
+                if (portType() == RefineryPortType.MODIFIER) {
+                    modifierActivationProgress = 0;
+                }
+                refineryContentsChanged();
+            }
+
+            @Override public boolean isItemValid(int slot, ItemStack stack) {
+                return portType() != RefineryPortType.MODIFIER
+                        || activeModifier == RefineryModifierType.NONE && ModBlocks.isModifierItem(stack);
+            }
+
+            @Override public void deserializeNBT(HolderLookup.Provider registries, CompoundTag tag) {
+                super.deserializeNBT(registries, tag);
+                if (stacks.size() != slots) {
+                    var previous = new ArrayList<>(stacks);
+                    stacks = NonNullList.withSize(slots, ItemStack.EMPTY);
+                    for (int slot = 0; slot < Math.min(previous.size(), slots); slot++) {
+                        ItemStack stack = previous.get(slot);
+                        if (isItemValid(slot, stack)) stacks.set(slot, stack);
+                    }
+                }
+                for (int slot = 0; slot < stacks.size(); slot++) {
+                    if (!stacks.get(slot).isEmpty() && !isItemValid(slot, stacks.get(slot))) {
+                        stacks.set(slot, ItemStack.EMPTY);
+                    }
+                }
+            }
+        };
     }
 
     public @Nullable BlockPos controllerPos() { return controllerPos; }
@@ -71,6 +92,61 @@ public class RefineryPortBlockEntity extends BlockEntity {
         };
     }
 
+    public RefineryModifierType activeModifier() { return activeModifier; }
+    public int modifierActivationProgress() { return modifierActivationProgress; }
+    public int modifierActivationTicks() { return modifierType(items.getStackInSlot(0)).activationTicks(); }
+    public int activeModifierTicksRemaining() { return activeModifierTicksRemaining; }
+
+    void tickModifier() {
+        if (portType() != RefineryPortType.MODIFIER) return;
+
+        if (activeModifier != RefineryModifierType.NONE) {
+            if (activeModifierTicksRemaining > 0) activeModifierTicksRemaining--;
+            if (activeModifierTicksRemaining <= 0) activeModifier = RefineryModifierType.NONE;
+            setChanged();
+            return;
+        }
+
+        ItemStack stack = items.getStackInSlot(0);
+        RefineryModifierType pending = modifierType(stack);
+        if (pending == RefineryModifierType.NONE) {
+            if (modifierActivationProgress != 0) {
+                modifierActivationProgress = 0;
+                setChanged();
+            }
+            return;
+        }
+
+        modifierActivationProgress++;
+        if (modifierActivationProgress < pending.activationTicks()) {
+            setChanged();
+            return;
+        }
+
+        modifierActivationProgress = 0;
+        items.extractItem(0, 1, false);
+        activeModifier = pending;
+        activeModifierTicksRemaining = TIMED_MODIFIER_DURATION_TICKS;
+        setChanged();
+    }
+
+    public ItemStack forceInstallSabotage() {
+        ItemStack displaced = items.extractItem(0, items.getStackInSlot(0).getCount(), false);
+        activeModifier = RefineryModifierType.NONE;
+        activeModifierTicksRemaining = 0;
+        modifierActivationProgress = 0;
+        items.insertItem(0, new ItemStack(ModBlocks.SABOTAGE_MODIFIER.get()), false);
+        setChanged();
+        return displaced;
+    }
+
+    private RefineryModifierType modifierType(ItemStack stack) {
+        if (stack.is(ModBlocks.ACCELERATION_MODIFIER.get())) return RefineryModifierType.ACCELERATION;
+        if (stack.is(ModBlocks.SABOTAGE_MODIFIER.get())) return RefineryModifierType.SABOTAGE;
+        if (stack.is(ModBlocks.CRYSTALLIZATION_MODIFIER.get())) return RefineryModifierType.CRYSTALLIZATION;
+        return RefineryModifierType.NONE;
+    }
+
     void linkTo(@Nullable BlockPos controllerPos) {
         if (!Objects.equals(this.controllerPos, controllerPos)) {
             this.controllerPos = controllerPos;
@@ -78,9 +154,7 @@ public class RefineryPortBlockEntity extends BlockEntity {
         }
     }
 
-    private void refineryContentsChanged() {
-        setChanged();
-    }
+    private void refineryContentsChanged() { setChanged(); }
 
     @Override protected void saveAdditional(CompoundTag tag, HolderLookup.Provider registries) {
         super.saveAdditional(tag, registries);
@@ -88,6 +162,9 @@ public class RefineryPortBlockEntity extends BlockEntity {
         tag.put("Items", items.serializeNBT(registries));
         tag.put("Fluid", fluid.writeToNBT(registries, new CompoundTag()));
         tag.put("Energy", energy.serializeNBT(registries));
+        tag.putInt("ModifierActivation", modifierActivationProgress);
+        tag.putInt("ActiveModifier", activeModifier.ordinal());
+        tag.putInt("ActiveModifierTicks", activeModifierTicksRemaining);
     }
 
     @Override protected void loadAdditional(CompoundTag tag, HolderLookup.Provider registries) {
@@ -96,5 +173,11 @@ public class RefineryPortBlockEntity extends BlockEntity {
         if (tag.contains("Items")) items.deserializeNBT(registries, tag.getCompound("Items"));
         if (tag.contains("Fluid")) fluid.readFromNBT(registries, tag.getCompound("Fluid"));
         if (tag.contains("Energy")) energy.deserializeNBT(registries, tag.get("Energy"));
+        modifierActivationProgress = tag.getInt("ModifierActivation");
+        int modifierOrdinal = tag.getInt("ActiveModifier");
+        RefineryModifierType[] modifierTypes = RefineryModifierType.values();
+        activeModifier = modifierOrdinal >= 0 && modifierOrdinal < modifierTypes.length
+                ? modifierTypes[modifierOrdinal] : RefineryModifierType.NONE;
+        activeModifierTicksRemaining = tag.getInt("ActiveModifierTicks");
     }
 }

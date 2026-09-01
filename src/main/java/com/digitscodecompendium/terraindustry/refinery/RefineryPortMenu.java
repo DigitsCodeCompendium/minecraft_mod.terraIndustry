@@ -17,6 +17,10 @@ public class RefineryPortMenu extends AbstractContainerMenu {
     private final RefineryPortType type;
     private int fluidAmount;
     private int fluidTypeId;
+    private int modifierActivationProgress;
+    private int modifierActivationTicks;
+    private int activeModifier;
+    private int activeModifierTicks;
 
     public RefineryPortMenu(int id, Inventory inventory, RegistryFriendlyByteBuf buffer) {
         this(id, inventory, findPort(inventory.player, buffer.readBlockPos()), RefineryPortType.values()[buffer.readVarInt()]);
@@ -27,14 +31,24 @@ public class RefineryPortMenu extends AbstractContainerMenu {
         this.port = port;
         this.type = type;
         RefineryResource expectedResource = expectedResource();
-        if (port != null && expectedResource != null && expectedResource.kind() == RefineryResource.Kind.ITEM) {
+        if (port != null && (type == RefineryPortType.MODIFIER
+                || expectedResource != null && expectedResource.kind() == RefineryResource.Kind.ITEM)) {
             addPortSlots(port);
         }
         addFluidDataSlots();
+        addModifierDataSlots();
         addPlayerInventory(inventory);
     }
 
     private void addPortSlots(RefineryPortBlockEntity port) {
+        if (type == RefineryPortType.MODIFIER) {
+            addSlot(new SlotItemHandler(port.itemStorage(), 0, 80, 58) {
+                @Override public boolean mayPlace(net.minecraft.world.item.ItemStack stack) {
+                    return super.mayPlace(stack);
+                }
+            });
+            return;
+        }
         boolean acceptsItems = type == RefineryPortType.FUEL || type == RefineryPortType.MODIFIER;
         for (int row = 0; row < 3; row++) {
             for (int column = 0; column < 3; column++) {
@@ -76,6 +90,25 @@ public class RefineryPortMenu extends AbstractContainerMenu {
         });
     }
 
+    private void addModifierDataSlots() {
+        addDataSlot(new DataSlot() {
+            @Override public int get() { return port == null ? 0 : port.modifierActivationProgress(); }
+            @Override public void set(int value) { modifierActivationProgress = value; }
+        });
+        addDataSlot(new DataSlot() {
+            @Override public int get() { return port == null ? 0 : port.modifierActivationTicks(); }
+            @Override public void set(int value) { modifierActivationTicks = value; }
+        });
+        addDataSlot(new DataSlot() {
+            @Override public int get() { return port == null ? 0 : port.activeModifier().ordinal(); }
+            @Override public void set(int value) { activeModifier = value; }
+        });
+        addDataSlot(new DataSlot() {
+            @Override public int get() { return port == null ? 0 : port.activeModifierTicksRemaining(); }
+            @Override public void set(int value) { activeModifierTicks = value; }
+        });
+    }
+
     private static @Nullable RefineryPortBlockEntity findPort(Player player, BlockPos pos) {
         return player.level().getBlockEntity(pos) instanceof RefineryPortBlockEntity port ? port : null;
     }
@@ -94,6 +127,15 @@ public class RefineryPortMenu extends AbstractContainerMenu {
 
     public int fluidTypeId() {
         return fluidTypeId;
+    }
+
+    public int modifierActivationProgress() { return modifierActivationProgress; }
+    public int modifierActivationTicks() { return modifierActivationTicks; }
+    public int activeModifierTicks() { return activeModifierTicks; }
+    public RefineryModifierType activeModifier() {
+        RefineryModifierType[] values = RefineryModifierType.values();
+        return activeModifier >= 0 && activeModifier < values.length
+                ? values[activeModifier] : RefineryModifierType.NONE;
     }
 
     public @Nullable RefineryOperatingRate operatingRate() {

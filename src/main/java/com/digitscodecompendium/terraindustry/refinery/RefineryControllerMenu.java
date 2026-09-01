@@ -17,6 +17,11 @@ public class RefineryControllerMenu extends AbstractContainerMenu {
     private int portCount;
     private int cycleTicks;
     private int activeHourMask;
+    private int modifierType;
+    private int modifierTicksRemaining;
+    private int accelerationModifiers;
+    private int sabotageModifiers;
+    private int crystallizationModifiers;
     public RefineryControllerMenu(int id, Inventory inventory, RegistryFriendlyByteBuf buffer) {
         this(id, inventory, find(inventory.player, buffer.readBlockPos()));
     }
@@ -33,6 +38,17 @@ public class RefineryControllerMenu extends AbstractContainerMenu {
         addDataSlot(syncing(() -> controller == null ? 0 : controller.ports().size(), value -> portCount = value));
         addDataSlot(syncing(() -> controller == null ? 0 : controller.cycleTicks(), value -> cycleTicks = value));
         addDataSlot(syncing(() -> controller == null ? 0 : controller.activeHourMask(), value -> activeHourMask = value));
+        addDataSlot(syncing(() -> controller == null ? 0 : controller.activeModifier().ordinal(),
+                value -> modifierType = value));
+        addDataSlot(syncing(() -> controller == null ? 0
+                        : controller.modifierTicksRemaining(RefineryModifierType.SABOTAGE),
+                value -> modifierTicksRemaining = value));
+        addDataSlot(syncing(() -> serverModifierCount(RefineryModifierType.ACCELERATION),
+                value -> accelerationModifiers = value));
+        addDataSlot(syncing(() -> serverModifierCount(RefineryModifierType.SABOTAGE),
+                value -> sabotageModifiers = value));
+        addDataSlot(syncing(() -> serverModifierCount(RefineryModifierType.CRYSTALLIZATION),
+                value -> crystallizationModifiers = value));
     }
 
     private static DataSlot syncing(java.util.function.IntSupplier getter, java.util.function.IntConsumer setter) {
@@ -47,6 +63,10 @@ public class RefineryControllerMenu extends AbstractContainerMenu {
                 setter.accept(value);
             }
         };
+    }
+
+    private int serverModifierCount(RefineryModifierType type) {
+        return controller == null ? 0 : controller.modifierCount(type);
     }
 
     private static @Nullable RefineryControllerBlockEntity find(Player player, BlockPos pos) {
@@ -75,6 +95,24 @@ public class RefineryControllerMenu extends AbstractContainerMenu {
 
     public int activeHourMask() {
         return activeHourMask;
+    }
+
+    public RefineryModifierType activeModifier() {
+        RefineryModifierType[] values = RefineryModifierType.values();
+        return modifierType >= 0 && modifierType < values.length ? values[modifierType] : RefineryModifierType.NONE;
+    }
+
+    public int modifierTicksRemaining() {
+        return modifierTicksRemaining;
+    }
+
+    public int modifierCount(RefineryModifierType type) {
+        return switch (type) {
+            case ACCELERATION -> accelerationModifiers;
+            case SABOTAGE -> sabotageModifiers;
+            case CRYSTALLIZATION -> crystallizationModifiers;
+            case NONE -> 0;
+        };
     }
 
     @Override

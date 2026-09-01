@@ -1,5 +1,7 @@
 package com.digitscodecompendium.terraindustry.client;
 
+import com.digitscodecompendium.terraindustry.ModBlocks;
+import com.digitscodecompendium.terraindustry.refinery.RefineryModifierType;
 import com.digitscodecompendium.terraindustry.refinery.RefineryPortMenu;
 import com.digitscodecompendium.terraindustry.refinery.RefineryPortType;
 import com.digitscodecompendium.terraindustry.refinery.RefineryResource;
@@ -24,7 +26,9 @@ public class RefineryPortScreen extends AbstractContainerScreen<RefineryPortMenu
         graphics.drawString(font, title, leftPos + 13, topPos + 11, 0xFFF1E0BE, false);
 
         RefineryResource expected = menu.expectedResource();
-        if (expected != null && expected.kind() == RefineryResource.Kind.ITEM) {
+        if (menu.portType() == RefineryPortType.MODIFIER) {
+            drawModifierStorage(graphics);
+        } else if (expected != null && expected.kind() == RefineryResource.Kind.ITEM) {
             drawItemStorage(graphics, expected);
         } else if (isFluidPort(expected)) {
             drawFluidStorage(graphics, expected);
@@ -44,6 +48,67 @@ public class RefineryPortScreen extends AbstractContainerScreen<RefineryPortMenu
         graphics.renderItem(new ItemStack(net.minecraft.core.registries.BuiltInRegistries.ITEM.get(expected.id())),
                 leftPos + 80, topPos + 31);
         drawSlotGrid(graphics, 3, 3, leftPos + 61, topPos + 57);
+    }
+
+    private void drawModifierStorage(GuiGraphics graphics) {
+        RefineryUiRenderer.previewPlaque(graphics, leftPos + 79, topPos + 30, menu.portType());
+        RefineryUiRenderer.slot(graphics, leftPos + 79, topPos + 57);
+        drawActivationFrame(graphics, leftPos + 78, topPos + 56, menu.modifierActivationProgress(),
+                menu.modifierActivationTicks());
+        ItemStack activeModifierStack = activeModifierStack(menu.activeModifier());
+        if (!activeModifierStack.isEmpty()) {
+            graphics.renderItem(activeModifierStack, leftPos + 80, topPos + 31);
+        }
+        if (menu.activeModifier() == RefineryModifierType.NONE) {
+            int percent = menu.modifierActivationTicks() <= 0 ? 0
+                    : menu.modifierActivationProgress() * 100 / menu.modifierActivationTicks();
+            String label = percent > 0 ? "ACTIVATING: " + percent + "%" : "INSTALL ONE MODIFIER";
+            graphics.drawString(font, label, leftPos + 13, topPos + 82, 0xFFC9AA77, false);
+        } else {
+            graphics.drawString(font, "ACTIVE: " + menu.activeModifier().displayName().getString(),
+                    leftPos + 13, topPos + 82, 0xFF75C9D6, false);
+            if (menu.activeModifierTicks() > 0) {
+                graphics.drawString(font, (menu.activeModifierTicks() + 19) / 20 + "s remaining",
+                        leftPos + 13, topPos + 94, 0xFFE0E0E0, false);
+            }
+        }
+    }
+
+    private ItemStack activeModifierStack(RefineryModifierType modifier) {
+        return switch (modifier) {
+            case ACCELERATION -> new ItemStack(ModBlocks.ACCELERATION_MODIFIER.get());
+            case SABOTAGE -> new ItemStack(ModBlocks.SABOTAGE_MODIFIER.get());
+            case CRYSTALLIZATION -> new ItemStack(ModBlocks.CRYSTALLIZATION_MODIFIER.get());
+            case NONE -> ItemStack.EMPTY;
+        };
+    }
+
+    private void drawActivationFrame(GuiGraphics graphics, int x, int y, int progress, int activationTicks) {
+        if (progress <= 0 || activationTicks <= 0) {
+            return;
+        }
+
+        int remaining = activationTicks <= 0 ? 0 : Math.min(80, progress * 80 / activationTicks);
+        int color = 0xFF55D7E8;
+        int segment = Math.min(20, remaining);
+        if (segment > 0) {
+            graphics.fill(x, y, x + segment, y + 1, color);
+        }
+        remaining -= segment;
+        segment = Math.min(20, remaining);
+        if (segment > 0) {
+            graphics.fill(x + 19, y, x + 20, y + segment, color);
+        }
+        remaining -= segment;
+        segment = Math.min(20, remaining);
+        if (segment > 0) {
+            graphics.fill(x + 20 - segment, y + 19, x + 20, y + 20, color);
+        }
+        remaining -= segment;
+        segment = Math.min(20, remaining);
+        if (segment > 0) {
+            graphics.fill(x, y + 20 - segment, x + 1, y + 20, color);
+        }
     }
 
     private boolean isFluidPort(RefineryResource expected) {

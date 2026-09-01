@@ -17,29 +17,29 @@ public class RefineryControllerScreen extends AbstractContainerScreen<RefineryCo
     public RefineryControllerScreen(RefineryControllerMenu menu, Inventory inventory, Component title) {
         super(menu, inventory, title);
         imageWidth = 176;
-        imageHeight = 166;
+        imageHeight = 182;
         titleLabelY = -100;
         inventoryLabelY = -100;
     }
     @Override protected void renderBg(GuiGraphics graphics, float partialTick, int mouseX, int mouseY) {
         RefineryUiRenderer.panel(graphics, leftPos, topPos, imageWidth, imageHeight, title.getString());
         graphics.drawString(font, title, leftPos + 13, topPos + 11, 0xFFF1E0BE, false);
-        RefineryUiRenderer.recessedPanel(graphics, leftPos + 12, topPos + 31, 152, 74);
+        RefineryUiRenderer.recessedPanel(graphics, leftPos + 12, topPos + 31, 152, 98);
         RefineryUiRenderer.indicator(graphics, leftPos + 22, topPos + 43, menu.active());
         graphics.drawString(font, menu.active() ? "REFINERY ACTIVE" : "REFINERY STANDBY", leftPos + 38, topPos + 43, menu.active() ? 0xFF8BE06E : 0xFFE08B6E, false);
-        graphics.drawString(font, "Connected ports: " + menu.portCount(), leftPos + 22, topPos + 62, 0xFFE0E0E0, false);
-        graphics.drawString(font, "Cycle: " + cyclePercent() + "%", leftPos + 22, topPos + 79, 0xFFE0E0E0, false);
-        graphics.drawString(font, "Remaining: " + remainingTime(), leftPos + 22, topPos + 94, 0xFFE0E0E0, false);
+        graphics.drawString(font, "Connected ports: " + menu.portCount(), leftPos + 22, topPos + 60, 0xFFE0E0E0, false);
+        graphics.drawString(font, "Cycle: " + cyclePercent() + "%", leftPos + 22, topPos + 76, 0xFFE0E0E0, false);
+        graphics.drawString(font, "Remaining: " + remainingTime(), leftPos + 22, topPos + 92, 0xFFE0E0E0, false);
         // A small, familiar machine-style progress meter.
-        graphics.fill(leftPos + 22, topPos + 114, leftPos + 154, topPos + 119, 0xFF111213);
+        graphics.fill(leftPos + 22, topPos + 104, leftPos + 154, topPos + 109, 0xFF111213);
         int progressWidth = Math.round(130.0F * cyclePercent() / 100.0F);
-        graphics.fill(leftPos + 23, topPos + 115, leftPos + 23 + progressWidth, topPos + 118, menu.active() ? 0xFFB87931 : 0xFF4A3420);
+        graphics.fill(leftPos + 23, topPos + 105, leftPos + 23 + progressWidth, topPos + 108, menu.active() ? 0xFFB87931 : 0xFF4A3420);
         drawSchedule(graphics);
     }
 
     private void drawSchedule(GuiGraphics graphics) {
         int x = leftPos + 22;
-        int y = topPos + 132;
+        int y = topPos + 148;
         int cellWidth = 5;
         int mask = menu.activeHourMask();
         ZoneId localZone = ZoneId.systemDefault();
@@ -88,5 +88,6 @@ public class RefineryControllerScreen extends AbstractContainerScreen<RefineryCo
         if (seconds > 0) return seconds + "s " + ticks + "t";
         return ticks + "t";
     }
+
     @Override public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) { renderBackground(graphics, mouseX, mouseY, partialTick); super.render(graphics, mouseX, mouseY, partialTick); renderTooltip(graphics, mouseX, mouseY); }
 }

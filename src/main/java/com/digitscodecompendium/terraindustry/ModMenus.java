@@ -2,6 +2,7 @@ package com.digitscodecompendium.terraindustry;
 
 import com.digitscodecompendium.terraindustry.refinery.RefineryControllerMenu;
 import com.digitscodecompendium.terraindustry.refinery.RefineryPortMenu;
+import com.digitscodecompendium.terraindustry.effects.EffectsBlockMenu;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.world.inventory.MenuType;
 import net.neoforged.neoforge.common.extensions.IMenuTypeExtension;
@@ -14,5 +15,7 @@ public final class ModMenus {
             MENUS.register("refinery_port", () -> IMenuTypeExtension.create(RefineryPortMenu::new));
     public static final DeferredHolder<MenuType<?>, MenuType<RefineryControllerMenu>> REFINERY_CONTROLLER =
             MENUS.register("refinery_controller", () -> IMenuTypeExtension.create(RefineryControllerMenu::new));
+    public static final DeferredHolder<MenuType<?>, MenuType<EffectsBlockMenu>> EFFECTS_BLOCK =
+            MENUS.register("effects_block", () -> IMenuTypeExtension.create(EffectsBlockMenu::new));
     private ModMenus() { }
 }

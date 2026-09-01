@@ -23,6 +23,7 @@ public final class ModCreativeTabs {
                         output.accept(ModBlocks.MODIFIER_PORT.get());
                         output.accept(ModBlocks.COOLANT_PORT.get());
                         output.accept(ModBlocks.CATALYST_BLOCK.get());
+                        output.accept(ModBlocks.EFFECTS_BLOCK.get());
                     }).build());
 
     private ModCreativeTabs() { }

@@ -1,6 +1,7 @@
 package com.digitscodecompendium.terraindustry;
 
 import com.digitscodecompendium.terraindustry.refinery.BuiltinRefineries;
+import com.digitscodecompendium.terraindustry.effects.EffectsBlock;
 import com.digitscodecompendium.terraindustry.refinery.RefineryControllerBlock;
 import com.digitscodecompendium.terraindustry.refinery.RefineryPortBlock;
 import com.digitscodecompendium.terraindustry.refinery.RefineryPortType;
@@ -22,6 +23,7 @@ public final class ModBlocks {
     public static final DeferredBlock<RefineryPortBlock> MODIFIER_PORT = registerPort("modifier_port", RefineryPortType.MODIFIER);
     public static final DeferredBlock<RefineryPortBlock> COOLANT_PORT = registerPort("coolant_port", RefineryPortType.COOLANT);
     public static final DeferredBlock<Block> CATALYST_BLOCK = registerSimpleBlock("catalyst_block");
+    public static final DeferredBlock<EffectsBlock> EFFECTS_BLOCK = registerEffectsBlock("effects_block");
 
     private static DeferredBlock<RefineryControllerBlock> registerController(String name) {
         DeferredBlock<RefineryControllerBlock> block = BLOCKS.registerBlock(name, RefineryControllerBlock::new);
@@ -43,6 +45,12 @@ public final class ModBlocks {
 
     private static DeferredBlock<Block> registerSimpleBlock(String name) {
         DeferredBlock<Block> block = BLOCKS.registerBlock(name, properties -> new Block(properties.strength(-1.0F, 3_600_000.0F)));
+        ITEMS.register(name, () -> new BlockItem(block.get(), new Item.Properties()));
+        return block;
+    }
+
+    private static DeferredBlock<EffectsBlock> registerEffectsBlock(String name) {
+        DeferredBlock<EffectsBlock> block = BLOCKS.registerBlock(name, EffectsBlock::new);
         ITEMS.register(name, () -> new BlockItem(block.get(), new Item.Properties()));
         return block;
     }

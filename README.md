@@ -75,3 +75,12 @@ amethyst clusters are supported out of the box.
 Fuel and Modifier Ports expose item storage; the Coolant Port exposes liquid storage. Modifier
 and coolant effects are intentionally not processed yet, as their separate mechanics still need
 their design pass.
+
+## Effects block
+
+The **Effects Block** is available in the Terra Industry creative tab. It uses the required
+[Cascade](https://modrinth.com/mod/cascademc) library to continuously emit a layered sonic-pulse ring.
+Only players with permission level 2
+(operators/admins) can open its configuration screen. The screen accepts a final radius in blocks,
+a fade exponent, the pulse travel time in seconds, and a six-digit hex color such as `#35D4FF`.
+Settings are stored on each placed block and validated by the server.

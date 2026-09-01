@@ -20,10 +20,12 @@ public class TerraIndustry {
     public TerraIndustry(IEventBus modBus, ModContainer container) {
         ModBlocks.BLOCKS.register(modBus);
         ModBlocks.ITEMS.register(modBus);
+        ModSounds.SOUND_EVENTS.register(modBus);
         ModBlockEntities.BLOCK_ENTITIES.register(modBus);
         ModCreativeTabs.CREATIVE_MODE_TABS.register(modBus);
         ModMenus.MENUS.register(modBus);
         modBus.addListener(ModCapabilities::register);
+        modBus.addListener(ModPayloads::register);
         BuiltinRefineries.register();
     }
 }

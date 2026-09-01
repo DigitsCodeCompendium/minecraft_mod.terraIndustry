@@ -1,0 +1,6 @@
+{
+  "parent": "minecraft:block/cube_all",
+  "textures": {
+    "all": "terraindustry:block/catalyst_block_connected"
+  }
+}

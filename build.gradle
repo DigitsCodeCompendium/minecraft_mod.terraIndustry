@@ -14,7 +14,8 @@ tasks.named('wrapper', Wrapper).configure {
     distributionType = Wrapper.DistributionType.BIN
 }
 
-version = mod_version
+// Tagged CI releases override this with -Prelease_version so the JAR matches the Git tag.
+version = providers.gradleProperty('release_version').orElse(mod_version).get()
 group = mod_group_id
 
 sourceSets.main.resources {
